@@ -1,0 +1,7 @@
+streamlit
+polars
+plotly
+dash
+pandas
+google.generativeai
+openpyxl
