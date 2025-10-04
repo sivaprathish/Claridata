@@ -196,7 +196,7 @@ st.markdown(f"""
     <h1>The AI Data Analyst</h1>
     <p>Connect your data, ask questions in plain English,<br>
     and get insights in seconds. No coding required.</p>
-    <a href="/1_Data_Analyzer" target="_self" class="cta-btn">
+    <a href="/Data_Analyzer" target="_self" class="cta-btn">
         🚀 Try ClariData Free
     </a>
 </div>
