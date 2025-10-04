@@ -108,7 +108,7 @@ secrets.yml
 *.pyc
 
 # assets
-assets/claridata_logo.png
+# (allowed) assets/claridata_logo.png
 
 # Ignore compiled Python files in pages __pycache__
 pages/__pycache__/
