@@ -1,9 +1,6 @@
 import json
 import os
-import time
-import random
 import google.generativeai as genai
-import google.api_core.exceptions as google_exceptions
 
 
 def generate_ai_insights(metadata: dict, api_key: str = None):
@@ -11,14 +8,17 @@ def generate_ai_insights(metadata: dict, api_key: str = None):
     Use Google Gemini to generate business-friendly insights,
     KPIs, and visualization suggestions from dataset metadata.
     """
-
     # =============================
     # 1. Configure Gemini
     # =============================
 
-    # Try environment variable first, fallback to provided key.
-    # NOTE: removed any hard-coded API key to avoid accidental key exposure.
-    api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    # Try environment variable first, fallback to provided or default key
+    api_key = (
+        api_key
+        or os.getenv("GEMINI_API_KEY")
+        or os.getenv("GOOGLE_API_KEY")
+        or "AIzaSyAsCQ4fAGS6NtIXXMiQdmDaUH6yqvpFIHU"  # fallback API key
+    )
 
     if not api_key:
         raise ValueError(
@@ -31,7 +31,6 @@ def generate_ai_insights(metadata: dict, api_key: str = None):
     # If the caller passed a DataFrame (pandas or polars), convert it into a
     # JSON-serializable metadata dict so json.dumps won't fail.
     try:
-        # Handle pandas DataFrame
         import pandas as _pd
 
         if isinstance(metadata, _pd.DataFrame):
@@ -47,15 +46,12 @@ def generate_ai_insights(metadata: dict, api_key: str = None):
         pass
 
     try:
-        # Handle polars DataFrame (lazy import)
         import polars as _pl
 
         if isinstance(metadata, _pl.DataFrame):
             df = metadata
             cols = df.columns
-            # polars types are not JSON serializable, so stringify them
             dtypes = {col: str(df[col].dtype) for col in cols}
-            # preview: convert head to list of records
             preview_rows = []
             for row in df.head(10).rows():
                 preview_rows.append(dict(zip(cols, row)))
@@ -127,58 +123,20 @@ Rules:
     # =============================
     # 3. Send to Gemini & Get Response
     # =============================
-    # Attempt the request with a small exponential backoff retry loop to
-    # handle transient quota/rate-limit errors (e.g., ResourceExhausted).
-    max_attempts = 4
-    base_delay = 1.0  # seconds
-    response = None
-    last_exception = None
-    for attempt in range(1, max_attempts + 1):
-        try:
-            response = model.generate_content(prompt)
-            last_exception = None
-            break
-        except google_exceptions.ResourceExhausted as e:
-            # Likely quota/rate limit. Backoff and retry a few times then fail gracefully.
-            last_exception = e
-            if attempt == max_attempts:
-                break
-            # exponential backoff with jitter
-            sleep_for = min(base_delay * (2 ** (attempt - 1)), 10) + random.random() * 0.5
-            print(f"⚠️ ResourceExhausted on attempt {attempt}, backing off {sleep_for:.2f}s...")
-            time.sleep(sleep_for)
-            continue
-        except Exception as e:
-            # Non-retryable or unexpected error: capture and return a friendly dict
-            print("⚠️ Unexpected error when calling Gemini:", e)
-            return {"error": "request_failed", "message": str(e)}
-
-    if last_exception is not None and response is None:
-        # All retries exhausted. Provide a helpful error dict rather than raising.
-        msg = (
-            "The Gemini API returned ResourceExhausted (quota or rate limit). "
-            "Please check your API quota, wait a moment, or reduce request frequency."
-        )
-        print("⚠️", msg, "Exception:", last_exception)
-        return {"error": "ResourceExhausted", "message": msg, "details": str(last_exception)}
+    response = model.generate_content(prompt)
 
     # =============================
     # 4. Parse JSON Output
     # =============================
-    # Clean the response to handle cases where the model wraps JSON in code fences
     raw = response.text if hasattr(response, "text") else str(response)
 
-    # Remove common code fences and leading language hints (```json, ```)
     clean = raw.strip()
-    # Remove triple backticks and optional language tag
     clean = clean.replace("```json", "```")
     if clean.startswith("```") and clean.endswith("```"):
         clean = clean[3:-3].strip()
-    # Remove a leading 'json' token
     if clean.lower().startswith("json\n"):
         clean = clean[len("json\n"):].strip()
 
-    # As a last resort, try to extract the first JSON object using a regex
     insights_json = None
     try:
         insights_json = json.loads(clean)
@@ -198,16 +156,3 @@ Rules:
         print("⚠️ Could not parse JSON response:", outer_e)
         print("Raw output:", raw)
         return {"error": "Invalid JSON returned from Gemini", "raw_text": raw}
-
-
-# =============================
-# 5. Optional: Standalone Test
-# =============================
-if __name__ == "__main__":
-    from data_analysis import analyze_dataset
-
-    # Example test with local file
-    file_path = "Housing.csv"
-    metadata = analyze_dataset(file_path)
-
-    ai_output = generate_ai_insights(metadata)
