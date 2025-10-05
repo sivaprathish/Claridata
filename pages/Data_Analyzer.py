@@ -38,11 +38,20 @@ if uploaded_file:
 
     st.subheader("🤖 AI Insights")
     with st.spinner("Generating insights..."):
-        ai_output = generate_ai_insights(metadata)
+        try:
+            ai_output = generate_ai_insights(metadata)
+        except Exception as e:
+            st.error("⚠️ Failed to generate AI insights.")
+            st.write("Error:", str(e))
+            ai_output = {"error": "exception", "message": str(e)}
 
-    if "error" in ai_output:
-        st.error("⚠️ AI response parsing failed.")
-        st.text(ai_output.get("raw_text", ""))
+    # If the AI function returned an error dict, surface a friendly message.
+    if isinstance(ai_output, dict) and ai_output.get("error") is not None:
+        st.error("⚠️ AI insights could not be generated.")
+        if ai_output.get("message"):
+            st.write(ai_output.get("message"))
+        if ai_output.get("raw_text"):
+            st.text(ai_output.get("raw_text"))
     else:
         st.success("✅ AI Insights generated!")
         st.json(ai_output)

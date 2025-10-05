@@ -1,6 +1,9 @@
 import json
 import os
+import time
+import random
 import google.generativeai as genai
+import google.api_core.exceptions as google_exceptions
 
 
 def generate_ai_insights(metadata: dict, api_key: str = None):
@@ -13,13 +16,9 @@ def generate_ai_insights(metadata: dict, api_key: str = None):
     # 1. Configure Gemini
     # =============================
 
-    # Try environment variable first, fallback to provided or default key
-    api_key = (
-        api_key
-        or os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-        or "AIzaSyAFtPzArLvp377CsuAD1u-lBeKlYPuCYkg"  # fallback hardcoded key
-    )
+    # Try environment variable first, fallback to provided key.
+    # NOTE: removed any hard-coded API key to avoid accidental key exposure.
+    api_key = api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
     if not api_key:
         raise ValueError(
@@ -128,7 +127,40 @@ Rules:
     # =============================
     # 3. Send to Gemini & Get Response
     # =============================
-    response = model.generate_content(prompt)
+    # Attempt the request with a small exponential backoff retry loop to
+    # handle transient quota/rate-limit errors (e.g., ResourceExhausted).
+    max_attempts = 4
+    base_delay = 1.0  # seconds
+    response = None
+    last_exception = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            response = model.generate_content(prompt)
+            last_exception = None
+            break
+        except google_exceptions.ResourceExhausted as e:
+            # Likely quota/rate limit. Backoff and retry a few times then fail gracefully.
+            last_exception = e
+            if attempt == max_attempts:
+                break
+            # exponential backoff with jitter
+            sleep_for = min(base_delay * (2 ** (attempt - 1)), 10) + random.random() * 0.5
+            print(f"⚠️ ResourceExhausted on attempt {attempt}, backing off {sleep_for:.2f}s...")
+            time.sleep(sleep_for)
+            continue
+        except Exception as e:
+            # Non-retryable or unexpected error: capture and return a friendly dict
+            print("⚠️ Unexpected error when calling Gemini:", e)
+            return {"error": "request_failed", "message": str(e)}
+
+    if last_exception is not None and response is None:
+        # All retries exhausted. Provide a helpful error dict rather than raising.
+        msg = (
+            "The Gemini API returned ResourceExhausted (quota or rate limit). "
+            "Please check your API quota, wait a moment, or reduce request frequency."
+        )
+        print("⚠️", msg, "Exception:", last_exception)
+        return {"error": "ResourceExhausted", "message": msg, "details": str(last_exception)}
 
     # =============================
     # 4. Parse JSON Output
