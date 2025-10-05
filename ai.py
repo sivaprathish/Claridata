@@ -13,11 +13,7 @@ def generate_ai_insights(metadata: dict, api_key: str = None):
     # =============================
 
     # Try environment variable first, fallback to provided or default key
-    api_key = (
-        api_key
-        or os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-        or "AIzaSyAsCQ4fAGS6NtIXXMiQdmDaUH6yqvpFIHU"  # fallback API key
+    api_key = ("AIzaSyAsCQ4fAGS6NtIXXMiQdmDaUH6yqvpFIHU" 
     )
 
     if not api_key:
