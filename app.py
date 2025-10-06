@@ -263,71 +263,60 @@ st.markdown(f"""
 # ==================================
 # 🚀 Hero Section
 # ==================================
-import streamlit as st
-import base64
-from streamlit.components.v1 import html
-
-# Example: convert logo image to base64
-# logo_path = "logo.png"
-# with open(logo_path, "rb") as f:
-#     logo_base64 = base64.b64encode(f.read()).decode()
-# For now, assume logo_base64 exists
 hero_logo_html = (
-    f'<img src="data:image/png;base64,{logo1_base64}" height="50" alt="ClariData Logo">'
+    f'<img src="data:image/png;base64,{logo1_base64}" height="80" alt="ClariData Logo">'
     if logo1_base64
     else '<span class="nav-title">ClariData</span>'
 )
 
-hero_html = f"""
-<html>
-<head>
-<style>
-.hero {{
+st.markdown(f"""
+<div style="
     text-align: center;
-    padding: 50px 20px;
+    padding: 6rem 2rem 2rem 2rem;
     font-family: 'Inter', sans-serif;
-}}
-.hero-card {{
-    background: white;
-    border-radius: 20px;
-    box-shadow: none;
-    display: inline-block;
-    padding: 40px;
-    max-width: 700px;
-}}
-.hero .logo {{
-    width: 120px;
-    margin-bottom: 20px;
-}}
-.cta-btn {{
-    background-color: #2563eb;
-    color: white;
-    padding: 12px 28px;
-    border-radius: 12px;
-    text-decoration: none;
-    font-weight: 600;
-}}
-.cta-btn:hover {{
-    background-color: #1d4ed8;
-}}
-</style>
-</head>
-<body>
-<div class="hero">
-    <div class="hero-card">
+    background: radial-gradient(circle at 50% 10%, #e0f2fe 0%, #ffffff 70%);
+">
+    <div style="
+        background: white;
+        border-radius: 24px;
+        box-shadow: none;
+        display: inline-block;
+        padding: 3rem 4rem;
+        max-width: 700px;
+    ">
         {hero_logo_html}
-        <h1>Meet <span style="color:#2563eb;">ClariData</span> — Your AI Data Analyst</h1>
-        <p>Upload your data, ask questions in plain English, and let ClariData instantly generate insights, charts, and reports — no SQL or coding required.</p>
-        <br>
-        <a href="/Data_Analyzer" class="cta-btn">🚀 Start Free Analysis</a>
+        <h1 style="
+            font-size: 2.8rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            color: #0f172a;
+        ">
+            Meet <span style="color:#2563eb;">ClariData</span> — Your AI Data Analyst
+        </h1>
+        <p style="
+            font-size: 1.1rem;
+            color: #475569;
+            margin-bottom: 2.5rem;
+        ">
+            Upload your data, ask questions in plain English, and let ClariData instantly generate insights,
+            charts, and reports — no SQL or coding required.
+        </p>
+        <a href="/Data_Analyzer" style="
+            background: linear-gradient(90deg, #2563eb, #3b82f6);
+            color: #fff;
+            padding: 0.9rem 2.3rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 1.05rem;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        " onmouseover="this.style.transform='translateY(-3px)'"
+          onmouseout="this.style.transform='translateY(0)'">
+          🚀 Start Free Analysis
+        </a>
     </div>
 </div>
-</body>
-</html>
-"""
-
-# ✅ Guaranteed render — never shows as raw text
-html(hero_html, height=400, scrolling=False)
+""", unsafe_allow_html=True)
 
 
 
