@@ -254,7 +254,7 @@ st.markdown(f"""
     </div>
     <div class="nav-right">
         <a href="/Data_Analyzer" class="nav-btn">🧠 Analyzer</a>
-        <a href="/Dashboard" class="nav-btn">📈 Dashboard</a>
+        <a href="Dashboard" class="nav-btn">📈 Dashboard</a>
     </div>
 </div>
 """, unsafe_allow_html=True)
