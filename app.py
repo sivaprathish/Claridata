@@ -253,8 +253,8 @@ st.markdown(f"""
          <span class="nav-title">ClariData</span>
     </div>
     <div class="nav-right">
-        <a href="/Data_Analyzer" class="nav-btn">🧠 Analyzer</a>
-        <a href="Dashboard" class="nav-btn">📈 Dashboard</a>
+        <a href="/Data_Analyzer" target="_self" class="nav-btn">🧠 Analyzer</a>
+        <a href="/Dashboard" target="_self" class="nav-btn">📈 Dashboard</a>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -301,7 +301,7 @@ st.markdown(f"""
             Upload your data, ask questions in plain English, and let ClariData instantly generate insights,
             charts, and reports — no SQL or coding required.
         </p>
-        <a href="/Data_Analyzer" style="
+        <a href="/Data_Analyzer" target="_self" style="
             background: linear-gradient(90deg, #2563eb, #3b82f6);
             color: #fff;
             padding: 0.9rem 2.3rem;
@@ -386,7 +386,7 @@ st.markdown("")
 st.markdown(
     """
     <div style='text-align:center; margin-top:3rem;'>
-        <a href="/Data_Analyzer" style='background:linear-gradient(90deg,#2563eb,#3b82f6);
+        <a href="/Data_Analyzer" target="_self" style='background:linear-gradient(90deg,#2563eb,#3b82f6);
             color:#fff; padding:1rem 2.5rem; border-radius:12px; font-weight:600;
             text-decoration:none; font-size:1.1rem;'>✨ Try ClariData Now</a>
     </div>
