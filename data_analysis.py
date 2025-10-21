@@ -2,7 +2,6 @@ import polars as pl
 import json
 import os
 import numpy as np
-from sklearn.decomposition import PCA
 import scipy.stats as stats
 
 
@@ -158,18 +157,7 @@ def analyze_dataset(file_path: str):
             entropy_values[col] = -float(np.sum(probs * np.log2(probs)))
 
     # ------------------------------
-    # 9. PCA (numeric columns only)
-    # ------------------------------
-    pca_df = None
-    if numeric_cols:
-        numeric_data = df.select([pl.col(c) for c in numeric_cols]).to_numpy()
-        if numeric_data.shape[1] >= 2:
-            pca = PCA(n_components=2)
-            pca_result = pca.fit_transform(numeric_data)
-            pca_df = pl.DataFrame({"PCA1": pca_result[:, 0], "PCA2": pca_result[:, 1]})
-
-    # ------------------------------
-    # 10. Package metadata
+    # 9. Package metadata
     # ------------------------------
     metadata = {
         "dataset_overview": {
@@ -189,16 +177,4 @@ def analyze_dataset(file_path: str):
         "entropy_values": entropy_values,
     }
 
-    if pca_df is not None:
-        metadata["pca_head"] = pca_df.head().to_dict(as_series=False)
-
     return metadata
-
-
-# ------------------------------
-# 11. Standalone test
-# ------------------------------
-if __name__ == "__main__":
-    file_path = "retail_sales_dataset.csv"
-    result = analyze_dataset(file_path)
-    

@@ -1,9 +1,22 @@
 import json
 import os
+from typing import Union
 import google.generativeai as genai
 
+# Lazy import pandas only if needed. We don't want pandas as a hard dependency
+try:
+    import pandas as pd
+except Exception:
+    pd = None
 
-def generate_ai_insights(metadata: dict, api_key: str = None):
+# Import the analyzer so callers can pass a file path to generate metadata
+try:
+    from data_analysis import analyze_dataset
+except Exception:
+    analyze_dataset = None
+
+
+def generate_ai_insights(metadata: Union[dict, str], api_key: str = None):
     """
     Use Google Gemini to generate business-friendly insights,
     KPIs, and visualization suggestions from dataset metadata.
@@ -24,41 +37,77 @@ def generate_ai_insights(metadata: dict, api_key: str = None):
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel("gemini-2.5-pro")
 
-    # If the caller passed a DataFrame (pandas or polars), convert it into a
-    # JSON-serializable metadata dict so json.dumps won't fail.
-    try:
-        import pandas as _pd
+    # If caller passed a file path string or PathLike, try to use
+    # data_analysis.analyze_dataset to build a metadata dict.
+    if isinstance(metadata, (str, os.PathLike)):
+        if analyze_dataset is not None:
+            # If a file path was provided, analyze it to produce metadata
+            try:
+                metadata = analyze_dataset(str(metadata))
+            except Exception as e:
+                raise RuntimeError(f"Failed to analyze dataset at {metadata}: {e}")
+        else:
+            raise RuntimeError(
+                "analyze_dataset from data_analysis.py is not available."
+            )
 
-        if isinstance(metadata, _pd.DataFrame):
-            df = metadata
-            metadata = {
-                "columns": df.columns.tolist(),
-                "data_types": {col: str(dtype) for col, dtype in zip(df.columns, df.dtypes)},
-                "size": int(df.shape[0]) if df.shape is not None else len(df),
-                "preview": df.head(10).to_dict(orient="records"),
-            }
-    except Exception:
-        # pandas may not be installed or conversion failed; continue
-        pass
+    # If metadata is a pandas DataFrame (e.g., passed directly from Streamlit upload),
+    # convert it to a lightweight serializable summary so json.dumps doesn't fail.
+    def _make_json_serializable(obj):
+        # Convert non-JSON-serializable objects (especially pandas DataFrames)
+        # into lightweight, JSON-safe structures before embedding into prompts.
+        #
+        # Why: json.dumps cannot serialize DataFrame objects. Streamlit commonly
+        # passes a pandas.DataFrame from a file upload; embedding that directly
+        # into the model prompt caused the TypeError you saw. We convert the
+        # DataFrame into a concise summary (schema + up to 10 sample rows) so
+        # the prompt remains readable and small while preserving useful info.
+        #
+        # If you need a different representation (full CSV, larger sample, or
+        # column statistics), update this helper accordingly.
 
-    try:
-        import polars as _pl
+        # DataFrame -> to_dict(orient="records") for small previews, or a summary dict
+        if pd is not None and isinstance(obj, pd.DataFrame):
+            # Convert a small sample plus schema info to keep the prompt concise
+            try:
+                return {
+                    "type": "dataframe",
+                    "num_rows": int(obj.shape[0]),
+                    "num_columns": int(obj.shape[1]),
+                    "columns": [
+                        {
+                            "name": str(c),
+                            "dtype": str(obj[c].dtype)
+                        }
+                        for c in obj.columns
+                    ],
+                    "sample_rows": obj.head(10).to_dict(orient="records")
+                }
+            except Exception:
+                # Fallback: convert to records (may be large)
+                try:
+                    return obj.head(10).to_dict(orient="records")
+                except Exception:
+                    return str(obj)
 
-        if isinstance(metadata, _pl.DataFrame):
-            df = metadata
-            cols = df.columns
-            dtypes = {col: str(df[col].dtype) for col in cols}
-            preview_rows = []
-            for row in df.head(10).rows():
-                preview_rows.append(dict(zip(cols, row)))
-            metadata = {
-                "columns": cols,
-                "data_types": dtypes,
-                "size": int(df.height),
-                "preview": preview_rows,
-            }
-    except Exception:
-        pass
+        # If it's a dict containing DataFrames, convert them recursively
+        if isinstance(obj, dict):
+            new = {}
+            for k, v in obj.items():
+                new[k] = _make_json_serializable(v)
+            return new
+
+        # For lists/tuples, process items
+        if isinstance(obj, (list, tuple)):
+            return [_make_json_serializable(x) for x in obj]
+
+        # Default: return as-is (json.dumps will raise if truly non-serializable)
+        return obj
+
+    metadata = _make_json_serializable(metadata)
+
+   
+
 
     # =============================
     # 2. Build Prompt (Strict JSON Output)
@@ -152,3 +201,34 @@ Rules:
         print("⚠️ Could not parse JSON response:", outer_e)
         print("Raw output:", raw)
         return {"error": "Invalid JSON returned from Gemini", "raw_text": raw}
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Quick demo: analyze a dataset and optionally generate AI insights using Gemini.")
+    parser.add_argument("file", help="Path to dataset file (CSV, XLSX, JSON)")
+    parser.add_argument("--api_key", help="Gemini API key (optional)")
+    args = parser.parse_args()
+
+    if analyze_dataset is None:
+        print("data_analysis.analyze_dataset is not importable. Make sure data_analysis.py is in the same package or PYTHONPATH.")
+        raise SystemExit(1)
+
+    print(f"Analyzing: {args.file}")
+    meta = analyze_dataset(args.file)
+    print("--- Metadata summary ---")
+    print(json.dumps({
+        "dataset_overview": meta.get("dataset_overview"),
+        "num_columns": len(meta.get("columns", [])),
+        "top_correlations": meta.get("top_correlations", [])
+    }, indent=2))
+
+    # If user provided an API key, attempt to call Gemini; otherwise skip.
+    if args.api_key:
+        print("Calling Gemini to generate insights (this will use provided API key)...")
+        out = generate_ai_insights(meta, api_key=args.api_key)
+        print("--- AI Insights ---")
+        print(json.dumps(out, indent=2))
+    else:
+        print("No API key provided; skipping call to Gemini. Provide --api_key to call the model.")
