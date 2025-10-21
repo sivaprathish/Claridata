@@ -257,30 +257,106 @@ if df is not None:
     kpis = parsed.get("kpis", [])
     viz_recs = parsed.get("visualizations", [])
 
+    st.markdown("""
+        <style>
+        .dashboard-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 40px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .section {
+            width: 100%;
+            margin-bottom: 50px;
+        }
+        .section-title {
+            color: #1E3A8A;
+            font-weight: 700;
+            font-size:10px;
+            margin: 15px 0 25px;
+            border-left: 4px solid #1E3A8A;
+            padding-left: 12px;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            justify-content: center;
+        }
+        .card-hover {
+            background: white;
+            color: #333;
+            padding: 20px;
+            border-radius: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-6px) scale(1.02);
+            box-shadow: 0px 10px 25px rgba(0,0,0,0.15);
+        }
+        .kpi-title {
+            color: #1E40AF;
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 6px;
+        }
+        .kpi-value {
+            color: #16A34A;
+            font-weight: 700;
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+        .kpi-insight {
+            font-size: 14px;
+            color: #4B5563;
+            line-height: 1.4;
+            margin-bottom: 6px;
+        }
+        .kpi-trend {
+            color: #9CA3AF;
+            font-size: 13px;
+        }
+        .chart-insight {
+            font-size: 13px;
+            color: #4B5563;
+            margin-top: 10px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # ===================================
+        # Dashboard Layout
+        # ===================================
+    st.markdown("<div class='dashboard-wrapper'>", unsafe_allow_html=True)
+
     # HEADER
     st.markdown(f"""
-    <div style='text-align:center; margin:50px 0 30px;'>
-        <h2>{summary.get("title", "Dashboard")}</h2>
-        <p style='color:#4B5563; max-width:800px; margin:0 auto;'>
-            {summary.get("description", "")}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+        <div style='text-align:center; margin-bottom:40px'>
+            <h2 style='color:#1E3A8A; font-weight:700;'>{summary.get("title", "Dashboard")}</h2>
+            <p style='color:#4B5563; max-width:800px; margin:0 auto;'>
+                {summary.get("description", "")}
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
     # KPIs
     if kpis:
-        st.markdown("<h3 style='margin-bottom:20px;'>📈 Key Performance Indicators</h3>", unsafe_allow_html=True)
-        cols = st.columns(len(kpis))
-        for idx, k in enumerate(kpis):
-            with cols[idx]:
-                st.markdown(f"""
-                <div class="kpi-card">
-                    <div style='color:#1E40AF; font-weight:600; font-size:16px;'>{k.get("title", "KPI")}</div>
-                    <div style='color:#16A34A; font-weight:700; font-size:24px; margin:5px 0;'>{k.get("value", "")} {k.get("unit", "")}</div>
-                    <div style='font-size:13px; color:#4B5563;'>{k.get("insight", "")}</div>
+        st.markdown("<h3 class='section-title'>📈 Key Performance Indicators</h3>", unsafe_allow_html=True)
+        st.markdown("<div class='grid-container'>", unsafe_allow_html=True)
+        for k in kpis:
+            change = f" ({k['change']})" if k.get("change") else ""
+            st.markdown(f"""
+                <div class='card-hover'>
+                    <div class='kpi-title'>{k.get("title", "KPI")}</div>
+                    <div class='kpi-value'>{k.get("value", "")} {k.get("unit", "")}</div>
+                    <div class='kpi-insight'>{k.get("insight", "")}</div>
+                    <div class='kpi-trend'>{(k.get("trend", "") or "") + change}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
+        st.markdown("</div>", unsafe_allow_html=True)
     # VISUALIZATIONS
     COLOR_MAP = {
         "bar": ["#4F46E5", "#636EFA", "#00CC96", "#FFA15A", "#FF636E"],
@@ -291,7 +367,9 @@ if df is not None:
     }
 
     if viz_recs:
-        st.markdown("<h3 style='margin-top:50px;'>📊 Visual Insights</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 class='section-title'>📊 Visual Insights</h3>", unsafe_allow_html=True)
+        st.markdown("<div class='grid-container'>", unsafe_allow_html=True)
+
         for viz in viz_recs:
             chart_type = viz.get("chart_type")
             x = viz.get("x")
@@ -299,35 +377,113 @@ if df is not None:
             insight = viz.get("insight", "")
             title = viz.get("title", "Visualization")
 
+            # normalize and safety checks for columns
             if x not in df.columns:
                 continue
 
+                # Treat 'Count' (or 'count') as a special indicator to use value counts
             y_is_count = isinstance(y, str) and y.strip().lower() == "count"
+
+                # If y is provided but not a dataframe column and not 'count', skip this viz
             if y and not y_is_count and y not in df.columns:
                 continue
 
             fig = None
             if chart_type == "scatter" and y and not y_is_count:
-                fig = px.scatter(df, x=x, y=y, color_discrete_sequence=COLOR_MAP["scatter"])
+                fig = px.scatter(
+                        df,
+                        x=x,
+                        y=y,
+                        color_discrete_sequence=COLOR_MAP.get("scatter"),
+                        hover_data={y: True},
+                    )
             elif chart_type == "line" and y and not y_is_count:
-                fig = px.line(df, x=x, y=y, color_discrete_sequence=COLOR_MAP["line"])
+                fig = px.line(
+                        df,
+                        x=x,
+                        y=y,
+                        color_discrete_sequence=COLOR_MAP.get("line"),
+                    )
             elif chart_type == "bar":
                 if y_is_count or not y:
+                        # Use counts of x
                     count_df = df[x].value_counts().reset_index()
                     count_df.columns = [x, "count"]
-                    fig = px.bar(count_df, x=x, y="count", color=x, color_discrete_sequence=COLOR_MAP["bar"])
+                    fig = px.bar(
+                            count_df,
+                            x=x,
+                            y="count",
+                            color=x,
+                            color_discrete_sequence=COLOR_MAP.get("bar"),
+                        )
                 else:
-                    fig = px.bar(df, x=x, y=y, color=x, color_discrete_sequence=COLOR_MAP["bar"])
+                        # y exists (checked above). If numeric, aggregate by mean; otherwise plot raw values
+                    if pd.api.types.is_numeric_dtype(df[y]):
+                        try:
+                            avg_df = df.groupby(x)[y].mean().reset_index()
+                            fig = px.bar(
+                                    avg_df,
+                                    x=x,
+                                    y=y,
+                                    color=x,
+                                    color_discrete_sequence=COLOR_MAP.get("bar"),
+                                )
+                        except Exception:
+                            fig = px.bar(
+                                    df,
+                                    x=x,
+                                    y=y,
+                                    color=x,
+                                    color_discrete_sequence=COLOR_MAP.get("bar"),
+                                )
+                    else:
+                        fig = px.bar(
+                                df,
+                                x=x,
+                                y=y,
+                                color=x,
+                                color_discrete_sequence=COLOR_MAP.get("bar"),
+                            )
             elif chart_type == "pie":
-                fig = px.pie(df, names=x, color_discrete_sequence=COLOR_MAP["pie"])
+                fig = px.pie(df, names=x, color_discrete_sequence=COLOR_MAP.get("pie"))
             elif chart_type == "doughnut":
-                fig = px.pie(df, names=x, values=y if y and not y_is_count else None, hole=0.4, color_discrete_sequence=COLOR_MAP["doughnut"])
+                fig = px.pie(
+                        df,
+                        names=x,
+                        values=y if y and not y_is_count else None,
+                        hole=0.4,
+                        color_discrete_sequence=COLOR_MAP.get("doughnut"),
+                    )
 
             if fig:
-                fig.update_layout(template="plotly_white", hovermode="closest")
+                    # Polished layout for each figure
+                fig.update_layout(
+                        title=dict(text=title, x=0.5, xanchor='center', font=dict(family="Inter, Segoe UI", size=18, color="#222")),
+                        font=dict(family="Inter, Segoe UI", size=14, color="#333"),
+                        template="plotly_white",
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                        plot_bgcolor='rgba(245,247,250,0.9)',
+                        paper_bgcolor='rgba(245,247,250,0.9)',
+                        margin=dict(l=24, r=24, t=48, b=24),
+                    )
+
+                    # Slight marker/enhancement for bars/lines
+                try:
+                    if hasattr(fig, "update_traces"):
+                        fig.update_traces(marker=dict(opacity=0.92, line=dict(width=0.5, color="#ffffff")))
+                except Exception:
+                        pass
+
+                # st.markdown("<div class='card-hover'>", unsafe_allow_html=True)
                 st.plotly_chart(fig, use_container_width=True)
                 if insight:
-                    st.caption(f"💡 {insight}")
+                    st.markdown(f"<p class='chart-insight'>💡 {insight}</p>", unsafe_allow_html=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 # ============================================================
 # FOOTER
