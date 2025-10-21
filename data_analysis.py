@@ -1,12 +1,15 @@
 import polars as pl
 import json
 import os
+import numpy as np
+from sklearn.decomposition import PCA
+import scipy.stats as stats
 
 
 def analyze_dataset(file_path: str):
     """
-    Analyze a dataset (CSV, Excel, or JSON) using Polars
-    and return structured metadata.
+    Comprehensive dataset analyzer supporting CSV, Excel, and JSON files.
+    Generates metadata, summaries, correlations, and insights.
     """
 
     # ------------------------------
@@ -16,21 +19,15 @@ def analyze_dataset(file_path: str):
 
     if ext in [".csv"]:
         df = pl.read_csv(file_path)
-
     elif ext in [".xlsx", ".xls"]:
-        # Excel is not natively supported by Polars, so read via pandas bridge
         import pandas as pd
         df = pl.from_pandas(pd.read_excel(file_path))
-
     elif ext in [".json"]:
-        # For JSON files, read as a Polars DataFrame
         try:
             df = pl.read_json(file_path)
         except Exception:
-            # fallback if JSON is list-of-dicts or nested
             import pandas as pd
             df = pl.from_pandas(pd.read_json(file_path))
-
     else:
         raise ValueError(f"Unsupported file format: {ext}")
 
@@ -40,13 +37,13 @@ def analyze_dataset(file_path: str):
     columns = df.columns
     dtypes = {col: str(df[col].dtype) for col in columns}
     missing = {col: int(df[col].null_count()) for col in columns}
+    n_rows, n_cols = df.shape
+    mem_usage_mb = round(sum(df[col].estimated_size() for col in df.columns) / 1_000_000, 3)
 
     # ------------------------------
     # 3. Summary statistics
     # ------------------------------
     summary_df = df.describe()
-
-    # Convert Polars describe() to dict-of-dicts
     summary_named = {}
     for i, stat_name in enumerate(summary_df["statistic"].to_list()):
         for col in summary_df.columns:
@@ -55,19 +52,55 @@ def analyze_dataset(file_path: str):
             summary_named.setdefault(col, {})[stat_name] = summary_df[col][i]
 
     # ------------------------------
-    # 4. Add datetime summaries if applicable
+    # 4. Column-level insights
     # ------------------------------
-    for col in df.columns:
-        dtype = df[col].dtype
-        if dtype in (pl.Datetime, pl.Date):
-            col_min = df[col].min()
-            col_max = df[col].max()
-            col_range = col_max - col_min
-            summary_named[col] = {
-                "min": str(col_min),
-                "max": str(col_max),
-                "range": str(col_range)
+    column_insights = {}
+    for col in columns:
+        s = df[col]
+        dtype = str(s.dtype)
+        col_data = {"dtype": dtype, "missing": int(s.null_count())}
+
+        # Unique values and mode
+        try:
+            col_data["unique_count"] = s.n_unique()
+            mode_val = s.mode().to_list()
+            col_data["mode"] = mode_val[0] if mode_val else None
+        except Exception:
+            col_data["unique_count"] = None
+            col_data["mode"] = None
+
+        # Top categories
+        if "Utf8" in dtype or "Categorical" in dtype:
+            try:
+                freqs = s.value_counts().head(5).to_dict(as_series=False)
+                col_data["top_values"] = dict(zip(freqs["column_0"], freqs["count"]))
+            except Exception:
+                col_data["top_values"] = None
+
+        # Numeric stats & outliers
+        if any(t in dtype for t in ("Int", "Float")):
+            col_data["numeric_summary"] = {
+                "mean": s.mean(),
+                "std": s.std(),
+                "min": s.min(),
+                "max": s.max(),
+                "q25": s.quantile(0.25),
+                "median": s.median(),
+                "q75": s.quantile(0.75),
+                "skewness": s.skew(),
+                "kurtosis": s.kurtosis()
             }
+            q1, q3 = s.quantile(0.25), s.quantile(0.75)
+            iqr = q3 - q1
+            outliers = s.filter((s < q1 - 1.5 * iqr) | (s > q3 + 1.5 * iqr))
+            col_data["outliers"] = outliers.height
+
+        # Date range
+        if s.dtype in (pl.Date, pl.Datetime):
+            col_data["min"] = str(s.min())
+            col_data["max"] = str(s.max())
+
+        column_insights[col] = col_data
 
     # ------------------------------
     # 5. Correlations (numeric only)
@@ -78,33 +111,94 @@ def analyze_dataset(file_path: str):
     ]
 
     correlations = {}
+    top_corr_pairs = []
     for col1 in numeric_cols:
         correlations[col1] = {}
         for col2 in numeric_cols:
             try:
                 corr_val = df.select(pl.corr(pl.col(col1), pl.col(col2))).item()
                 correlations[col1][col2] = corr_val
+                if col1 != col2 and corr_val is not None:
+                    top_corr_pairs.append((col1, col2, abs(corr_val)))
             except Exception:
                 correlations[col1][col2] = None
 
+    top_corr_pairs_sorted = sorted(top_corr_pairs, key=lambda x: x[2], reverse=True)[:5]
+
     # ------------------------------
-    # 6. Build metadata package
+    # 6. Class imbalance (categoricals)
+    # ------------------------------
+    class_imbalance = {}
+    for col in columns:
+        if "Utf8" in str(df[col].dtype) or "Categorical" in str(df[col].dtype):
+            value_counts = df[col].value_counts().to_dict(as_series=False)
+            total = sum(value_counts["count"])
+            class_imbalance[col] = {
+                value_counts["column_0"][i]: {
+                    "count": value_counts["count"][i],
+                    "percentage": round(value_counts["count"][i] / total * 100, 2)
+                }
+                for i in range(len(value_counts["column_0"]))
+            }
+
+    # ------------------------------
+    # 7. Duplicate rows
+    # ------------------------------
+    duplicates_count = df.height - df.unique(maintain_order=True).height
+
+    # ------------------------------
+    # 8. Entropy for categorical columns
+    # ------------------------------
+    entropy_values = {}
+    for col in columns:
+        s = df[col]
+        if "Utf8" in str(s.dtype) or "Categorical" in str(s.dtype):
+            total_count = len(s)
+            probs = s.value_counts()["count"] / total_count
+            entropy_values[col] = -float(np.sum(probs * np.log2(probs)))
+
+    # ------------------------------
+    # 9. PCA (numeric columns only)
+    # ------------------------------
+    pca_df = None
+    if numeric_cols:
+        numeric_data = df.select([pl.col(c) for c in numeric_cols]).to_numpy()
+        if numeric_data.shape[1] >= 2:
+            pca = PCA(n_components=2)
+            pca_result = pca.fit_transform(numeric_data)
+            pca_df = pl.DataFrame({"PCA1": pca_result[:, 0], "PCA2": pca_result[:, 1]})
+
+    # ------------------------------
+    # 10. Package metadata
     # ------------------------------
     metadata = {
+        "dataset_overview": {
+            "num_rows": n_rows,
+            "num_columns": n_cols,
+            "memory_usage_MB": mem_usage_mb
+        },
         "columns": columns,
         "data_types": dtypes,
         "missing_values": missing,
         "summary_statistics": summary_named,
+        "column_insights": column_insights,
         "correlations": correlations,
+        "top_correlations": top_corr_pairs_sorted,
+        "class_imbalance": class_imbalance,
+        "duplicates_count": duplicates_count,
+        "entropy_values": entropy_values,
     }
+
+    if pca_df is not None:
+        metadata["pca_head"] = pca_df.head().to_dict(as_series=False)
 
     return metadata
 
 
 # ------------------------------
-# 7. Standalone testing
+# 11. Standalone test
 # ------------------------------
 if __name__ == "__main__":
-    file_path = "Housing.csv"  # or "data.xlsx", "data.json"
+    file_path = "retail_sales_dataset.csv"
     result = analyze_dataset(file_path)
     
