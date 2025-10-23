@@ -240,9 +240,22 @@ if uploaded_file:
 # AI INSIGHTS
 # ============================================================
 if df is not None:
-    st.info("🤖 Generating AI insights... please wait ⏳")
-    ai_output = generate_ai_insights(df)
+    # Create a placeholder for the "please wait" message
+    placeholder = st.empty()
+    placeholder.info("Generating AI insights... please wait")
 
+    # Generate insights
+    try:
+        ai_output = generate_ai_insights(df)
+    except Exception as e:
+        placeholder.empty()  # Remove waiting message if failed
+        st.error(f"❌ Error generating AI insights: {e}")
+        st.stop()
+
+    # Remove the "please wait" message after getting the result
+    placeholder.empty()
+
+    # Process AI output
     raw_output = ai_output.get("raw_text", json.dumps(ai_output))
     clean_json = re.sub(r"^[a-zA-Z]*|$", "", raw_output.strip()).strip()
     clean_json = re.sub(r"^json\\s*", "", clean_json).strip()
@@ -273,8 +286,8 @@ if df is not None:
         }
         .section-title {
             color: #1E3A8A;
-            font-weight: 700;
-            font-size:10px;
+            font-weight: 500;
+            font-size: 9px;
             margin: 15px 0 25px;
             border-left: 4px solid #1E3A8A;
             padding-left: 12px;
@@ -324,6 +337,17 @@ if df is not None:
             color: #4B5563;
             margin-top: 10px;
         }
+        .card-hover {
+            background: white;
+            color: #333;
+            padding: 20px;
+            border-radius: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: transform 0.25s ease, box-shadow 0.25s ease;
+        }
+        .card-hover {
+            margin-bottom: 30px;
+        }
         </style>
         """, unsafe_allow_html=True)
 
@@ -344,7 +368,7 @@ if df is not None:
 
     # KPIs
     if kpis:
-        st.markdown("<h3 class='section-title'>📈 Key Performance Indicators</h3>", unsafe_allow_html=True)
+        st.markdown("<h4 class='section-title'> - Key Performance Indicators</h4>", unsafe_allow_html=True)
         st.markdown("<div class='grid-container'>", unsafe_allow_html=True)
         for k in kpis:
             change = f" ({k['change']})" if k.get("change") else ""
@@ -367,7 +391,7 @@ if df is not None:
     }
 
     if viz_recs:
-        st.markdown("<h3 class='section-title'>📊 Visual Insights</h3>", unsafe_allow_html=True)
+        st.markdown("<h4 class='section-title'> - Visual Insights</h4>", unsafe_allow_html=True)
         st.markdown("<div class='grid-container'>", unsafe_allow_html=True)
 
         for viz in viz_recs:
@@ -477,7 +501,7 @@ if df is not None:
                 # st.markdown("<div class='card-hover'>", unsafe_allow_html=True)
                 st.plotly_chart(fig, use_container_width=True)
                 if insight:
-                    st.markdown(f"<p class='chart-insight'>💡 {insight}</p>", unsafe_allow_html=True)
+                    st.markdown(f"<p class='chart-insight'>{insight}</p>", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
         st.markdown("</div>", unsafe_allow_html=True)
