@@ -111,6 +111,6 @@ def render_shared_layout(page_title="ClariData"):
 def render_footer():
     st.markdown("""
     <footer>
-        © 2025 <strong>ClariData</strong> — AI-Powered Business Insights
+        <strong>ClariData</strong> — AI-Powered Business Insights
     </footer>
     """, unsafe_allow_html=True)
