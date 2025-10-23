@@ -5,5 +5,4 @@ dash
 pandas
 google.generativeai
 openpyxl
-json
 numpy
