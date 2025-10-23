@@ -7,7 +7,7 @@ import os
 # ==================================
 st.set_page_config(
     page_title="ClariData - The AI Data Analyst",
-    page_icon="🤖",
+    page_icon="🚀",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -166,7 +166,7 @@ st.markdown(f"""
         flex-direction: column;
         align-items: center;
         gap: 2rem;
-        padding: 5rem 2rem;
+        padding: 2rem 2rem;
         background-color: #ffffff;
     }}
 
@@ -253,8 +253,8 @@ st.markdown(f"""
          <span class="nav-title">ClariData</span>
     </div>
     <div class="nav-right">
-        <a href="/Data_Analyzer" target="_self" class="nav-btn">🧠 Analyzer</a>
-        <a href="/Dashboard" target="_self" class="nav-btn">📈 Dashboard</a>
+        <a href="/Data_Analyzer" target="_self" class="nav-btn">Analyzer</a>
+        <a href="/Dashboard" target="_self" class="nav-btn">Dashboard</a>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -264,7 +264,7 @@ st.markdown(f"""
 # 🚀 Hero Section
 # ==================================
 hero_logo_html = (
-    f'<img src="data:image/png;base64,{logo1_base64}" height="80" alt="ClariData Logo">'
+    f'<img src="data:image/png;base64,{logo1_base64}" height="150" alt="ClariData Logo">'
     if logo1_base64
     else '<span class="nav-title">ClariData</span>'
 )
@@ -281,8 +281,9 @@ st.markdown(f"""
         border-radius: 24px;
         box-shadow: none;
         display: inline-block;
-        padding: 3rem 4rem;
-        max-width: 700px;
+      padding: 8rem 4rem;          /* ⬅ Increased padding for more height */
+    max-width: 800px;
+    min-height: 600px;  
     ">
         {hero_logo_html}
         <h1 style="
@@ -388,7 +389,7 @@ st.markdown(
     <div style='text-align:center; margin-top:3rem;'>
         <a href="/Data_Analyzer" target="_self" style='background:linear-gradient(90deg,#2563eb,#3b82f6);
             color:#fff; padding:1rem 2.5rem; border-radius:12px; font-weight:600;
-            text-decoration:none; font-size:1.1rem;'>✨ Try ClariData Now</a>
+            text-decoration:none; font-size:1.1rem;'>Try ClariData Now</a>
     </div>
     """,
     unsafe_allow_html=True,
@@ -397,17 +398,17 @@ st.markdown(
 st.markdown("<br>", unsafe_allow_html=True)
 
 data_html = (
-    f'<img src="data:image/png;base64,{logo2_base64}" height="200" alt="ClariData Logo">'
+    f'<img src="data:image/png;base64,{logo2_base64}" height="300" alt="ClariData Logo">'
     if logo2_base64
     else '<span class="nav-title">ClariData</span>'
 )
 automation_html = (
-    f'<img src="data:image/png;base64,{logo3_base64}" height="200" alt="ClariData Logo">'
+    f'<img src="data:image/png;base64,{logo3_base64}" height="300" alt="ClariData Logo">'
     if logo3_base64
     else '<span class="nav-title">ClariData</span>'
 )
 instant_html = (
-    f'<img src="data:image/png;base64,{logo4_base64}" height="200" alt="ClariData Logo">'
+    f'<img src="data:image/png;base64,{logo4_base64}" height="300" alt="ClariData Logo">'
     if logo4_base64
     else '<span class="nav-title">ClariData</span>'
 )
@@ -415,35 +416,33 @@ instant_html = (
 # ✅ Make this an f-string!
 st.markdown(f"""
 <div class="features">
-
-  <div class="feature-card">
-      <div class="feature-icon">💬</div>
+    <div class="feature-card">
       <div class="feature-title">Chat with Your Data</div>
       <div class="feature-desc">
           Ask questions in plain English and get instant answers powered by AI.
       </div>
         <br>
         {data_html}
+        <br>
   </div>
-
-  <div class="feature-card">
-      <div class="feature-icon">📊</div>
+<div class="feature-card">
       <div class="feature-title">Automatic Visuals</div>
       <div class="feature-desc">
           Get stunning charts and insights without writing a single line of code.
         </div>
       <br>
       {automation_html}
+      <br>
   </div>
 
   <div class="feature-card">
-      <div class="feature-icon">⚡</div>
       <div class="feature-title">Instant Insights</div>
       <div class="feature-desc">
           Accelerate decisions with lightning-fast AI analysis on any dataset.
     </div>
       <br>
       {instant_html}
+      <br>
   </div>
 
 </div>
@@ -457,6 +456,6 @@ st.markdown(f"""
 # ==================================
 st.markdown("""
 <div class="footer">
-    © 2025 <strong>ClariData</strong> — AI-Powered Business Insights
+    <strong>ClariData</strong> — AI-Powered Business Insights
 </div>
 """, unsafe_allow_html=True)

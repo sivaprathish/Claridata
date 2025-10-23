@@ -15,7 +15,7 @@ def render_shared_layout(page_title="ClariData"):
 
     st.set_page_config(
         page_title=page_title,
-        page_icon="🤖",
+        page_icon="🚀",
         layout="wide",
         initial_sidebar_state="collapsed"
     )
@@ -102,7 +102,7 @@ def render_shared_layout(page_title="ClariData"):
             <span class="nav-title">ClariData</span>
         </div>
         <div class="nav-right">
-            <a href="/Data_Analyzer" target="_self" class="nav-btn">🤖 Analyzer</a>
+            <a href="/Data_Analyzer" target="_self" class="nav-btn">🚀 Analyzer</a>
             <a href="/Dashboard" target="_self" class="nav-btn">📈 Dashboard</a>
         </div>
     </div>
